@@ -295,8 +295,8 @@ void loop() {
     struct tm *timeinfo;
     timeinfo = localtime(&epochTime);
     String currentRealTime = String(timeinfo->tm_hour) + ":" + String(timeinfo->tm_min);
-    leds.onTime(currentRealTime, ledOnTime);
-    leds.offTime(currentRealTime, ledOffTime);
+    leds.onLed(currentRealTime, ledOnTime);
+    leds.offLed(currentRealTime, ledOffTime);
     tempController.heating(preferences.getDouble("temp", temp);
     /*currentTemp = tempController.readTemperature(); 
     Serial.print("RGB LED Values: R=");
