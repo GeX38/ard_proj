@@ -1,10 +1,14 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
+#include <WiFiUdp.h>
+#include <NTPClient.h>
 #include "LEDControl.h"
 #include "PIDController.h"
 #include <Preferences.h>
 
 Preferences preferences; 
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP, "pool.ntp.org");
 
 const char* ssid = "TP-Link_84AB";
 const char* password = "18363784";
@@ -35,7 +39,7 @@ void setup() {
   }
   Serial.println("");
   Serial.println("WiFi connected");
-
+  
   preferences.begin("esp-settings", false);  // Инициализация под "esp-settings" namespace
   // Загрузка сохраненных значений
   r = preferences.getInt("red", 0);         // Значение по умолчанию - 0
@@ -45,6 +49,8 @@ void setup() {
   temp = preferences.getDouble("temp", 25.0);  // Предположим, что начальная температура 25.0
   ledOnTime = preferences.getString("ledOnTime", "06:00");
   ledOffTime = preferences.getString("ledOffTime", "18:00");
+  timeClient.begin();
+  timeClient.setTimeOffset(28800); 
   
   leds.setColor(r*4, g*4, b*4);
   if (pumpSpeed >= 0 && pumpSpeed <= 100) {
@@ -280,9 +286,17 @@ void handleGetCurrentTemperature() {
 }
 void loop() {
 
-   unsigned long currentMillis = millis();
+  
+  unsigned long currentMillis = millis();
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;
+    timeClient.update();
+    unsigned long epochTime = timeClient.getEpochTime();
+    struct tm *timeinfo;
+    timeinfo = localtime(&epochTime);
+    String currentRealTime = String(timeinfo->tm_hour) + ":" + String(timeinfo->tm_min);
+    leds.onTime(currentRealTime, ledOnTime);
+    leds.offTime(currentRealTime, ledOffTime);
     tempController.heating(preferences.getDouble("temp", temp);
     /*currentTemp = tempController.readTemperature(); 
     Serial.print("RGB LED Values: R=");

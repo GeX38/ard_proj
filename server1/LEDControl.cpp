@@ -22,6 +22,21 @@ void LEDControl::setColor(int r, int g, int b) {
   analogWrite(_pinG, g);
   analogWrite(_pinB, b);
 }
+void LEDControl::offLed(String currentRealTime, String ledOffTime){
+  if (currentRealTime == ledOffTime){
+    analogWrite(_pinR, 0);
+    analogWrite(_pinG, 0);
+    analogWrite(_pinB, 0);
+  }
+}
+
+void LEDControl::onLed(String currentRealTime, String ledOnTime){
+  if (currentRealTime == ledOffTime){
+    analogWrite(_pinR, r);
+    analogWrite(_pinG, g);
+    analogWrite(_pinB, b);
+  }
+}
 
 void LEDControl::fadeColor(int r, int g, int b) {
   for (int i = 0; i <= 255; i++) {
