@@ -6,7 +6,7 @@
 #include "PIDController.h"
 #include <Preferences.h>
 
-Preferences preferences; 
+Preferences preferences;
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org");
 
@@ -22,12 +22,20 @@ ESP8266WebServer server(80);
 LEDControl leds(5, 4, 0);  // GPIO5, GPIO4, GPIO0 for RGB
 
 // Temperature and PID settings (replace with actual GPIO pins)
-PIDController<2, 14> tempController;  // Example: GPIO2 for sensor, GPIO14 for heater
-
+PIDController<12, 14> tempController;  //GPIO2 for sensor, GPIO14 for heater
+const int pumpPin = 2;
 // Pump speed variable
 int pumpSpeed = 0, r = 0, b = 0, g = 0;
 double temp;
 String ledOnTime = "00:00", ledOffTime = "00:00", currentTemp = "";
+
+void handleRoot();
+void handleSetLED();
+void handleSetPumpSpeed();
+void handleSetTemperature();
+void handleSetOnTime();
+void handleSetOffTime();
+void handleGetCurrentTemperature();
 
 void setup() {
   Serial.begin(9600);
@@ -54,8 +62,9 @@ void setup() {
   
   leds.setColor(r*4, g*4, b*4);
   if (pumpSpeed >= 0 && pumpSpeed <= 100) {
-  int pwmValue = map(pumpSpeed, 0, 100, 0, 1023);
-  analogWrite(pumpPin, pwmValue);
+    int pwmValue = map(pumpSpeed, 0, 100, 0, 1023);
+    analogWrite(pumpPin, pwmValue);
+  }
 
   server.on("/", handleRoot);
   server.on("/setLED", handleSetLED);
@@ -65,7 +74,6 @@ void setup() {
   server.on("/setOffTime", handleSetOffTime);
   server.on("/getCurrentTemperature", handleGetCurrentTemperature);
 
-  
   server.begin();
   Serial.println("HTTP server started");
 }
@@ -80,10 +88,10 @@ void handleRoot() {
   ledOnTime = preferences.getString("ledOnTime", "06:00");
   ledOffTime = preferences.getString("ledOffTime", "18:00");
 
-String html = R"=====(
-<!DOCTYPE html>
-<html lang="en">
-<head>
+  String html = R"=====(
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ESP8266 Control Server</title>
@@ -159,8 +167,8 @@ String html = R"=====(
       .container { flex-direction: column; align-items: center; }
     }
   </style>
-</head>
-<body>
+  </head>
+  <body>
   <h1>ESP8266 Control Server</h1>
   <div class="container">
     <div class="settings">
@@ -193,19 +201,19 @@ String html = R"=====(
     </div>
 
     <div class="current-settings">
-        <p>Current LED Settings - Red: )=====" + String(r) + R"=====(
-        , Green: )=====" + String(g) + R"=====(
-        , Blue: )=====" + String(b) + R"=====(
-        </p>
-        <p>Current Pump Speed: )=====" + String(pumpSpeed) + R"=====(
-        </p>
-        <p id='currentTemp'>Loading current temperature...</p>
-        <p>Current Temperature Setpoint: )=====" + String(temp) + R"=====(&deg;C</p>
-        <p>Current LED On Time: )=====" + ledOnTime + R"=====(
-        </p>
-        <p>Current LED Off Time: )=====" + ledOffTime + R"=====(
-        </p>
-      </div>
+      <p>Current LED Settings - Red: )=====" + String(r) + R"=====(
+      , Green: )=====" + String(g) + R"=====(
+      , Blue: )=====" + String(b) + R"=====(
+      </p>
+      <p>Current Pump Speed: )=====" + String(pumpSpeed) + R"=====(
+      </p>
+      <p id='currentTemp'>Loading current temperature...</p>
+      <p>Current Temperature Setpoint: )=====" + String(temp) + R"=====(&deg;C</p>
+      <p>Current LED On Time: )=====" + ledOnTime + R"=====(
+      </p>
+      <p>Current LED Off Time: )=====" + ledOffTime + R"=====(
+      </p>
+    </div>
   </div>
   <script>
     function updateValueDisplay(color, value) {
@@ -220,9 +228,8 @@ String html = R"=====(
       document.getElementById('pumpSpeedValue').innerText = value + '%';
     }
     setInterval(function(){
-    fetch('/getCurrentTemperature').then(response => 
-    response.text()).then(data => 
-    document.getElementById('currentTemp').innerHTML = 'Current Temperature: ' + data + '&deg;C');}, 1000);
+      fetch('/getCurrentTemperature').then(response => response.text()).then(data => document.getElementById('currentTemp').innerHTML = 'Current Temperature: ' + data + '&deg;C');
+    }, 1000);
 
     window.onload = function() {
       updateValueDisplay('red', document.getElementById('red').value);
@@ -231,9 +238,9 @@ String html = R"=====(
       updatePumpSpeedDisplay(document.getElementById('pumpSpeed').value);
     };
   </script>
-</body>
-</html>
-)=====";
+  </body>
+  </html>
+  )=====";
   server.send(200, "text/html", html);
 }
 
@@ -266,9 +273,10 @@ void handleSetLED() {
 void handleSetPumpSpeed() {
   pumpSpeed = server.arg("speed").toInt();
   if (pumpSpeed >= 0 && pumpSpeed <= 100) {
-  int pwmValue = map(pumpSpeed, 0, 100, 0, 1023);
-  analogWrite(pumpPin, pwmValue);
-  preferences.putInt("pumpSpeed", pumpSpeed);
+    int pwmValue = map(pumpSpeed, 0, 100, 0, 1023);
+    analogWrite(pumpPin, pwmValue);
+    preferences.putInt("pumpSpeed", pumpSpeed);
+  }
   server.sendHeader("Location", "/");
   server.send(303);
 }
@@ -281,43 +289,26 @@ void handleSetTemperature() {
 }
 
 void handleGetCurrentTemperature() {
-  currentTemp = tempController.readTemperature();
+  currentTemp = String(tempController.readTemperature());
   server.send(200, "text/plain", currentTemp);
 }
-void loop() {
 
-  
+void loop() {
   unsigned long currentMillis = millis();
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;
     timeClient.update();
-    unsigned long epochTime = timeClient.getEpochTime();
+    time_t epochTime = (time_t)timeClient.getEpochTime();
     struct tm *timeinfo;
     timeinfo = localtime(&epochTime);
     String currentRealTime = String(timeinfo->tm_hour) + ":" + String(timeinfo->tm_min);
     leds.onLed(currentRealTime, ledOnTime, r, g, b);
     leds.offLed(currentRealTime, ledOffTime);
     tempController.heating(preferences.getDouble("temp", temp));
-    /*currentTemp = tempController.readTemperature(); 
-    Serial.print("RGB LED Values: R=");
-    Serial.print(r);
-    Serial.print(", G=");
-    Serial.print(g);
-    Serial.print(", B=");
-    Serial.print(b);
-    Serial.print("; Pump Speed: ");
-    Serial.print(pumpSpeed);
-    Serial.print("; ledOnTime: ");
-    Serial.print(ledOnTime);
-    Serial.print("; ledOffTime: ");
-    Serial.print(ledOffTime);
-    Serial.print("; Current Temperature: ");
-    Serial.print(currentTemp);
-    Serial.print("; Temperature Setpoint: ");
-    Serial.println(temp);*/
   }
   server.handleClient();
 }
+
 void end() {
-  preferences.end();  // Закрытие Preferences при завершении работы
+  preferences.end(); 
 }

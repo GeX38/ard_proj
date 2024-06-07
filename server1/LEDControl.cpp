@@ -31,7 +31,7 @@ void LEDControl::offLed(String currentRealTime, String ledOffTime){
 }
 
 void LEDControl::onLed(String currentRealTime, String ledOnTime, int r, int g, int b){
-  if (currentRealTime == ledOffTime){
+  if (currentRealTime == ledOnTime){
     analogWrite(_pinR, r);
     analogWrite(_pinG, g);
     analogWrite(_pinB, b);
